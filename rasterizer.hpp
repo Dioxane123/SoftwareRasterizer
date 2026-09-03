@@ -51,6 +51,10 @@ namespace rst {
             void draw(pos_buf_id pos_buffer, ind_buf_id ind_buffer, Primitive type);
         
         private:
+            void draw_line(const Eigen::Vector3f& begin, const Eigen::Vector3f& end);
+            void rasterize_triangle(const Triangle& t);
+
+        private:
             Eigen::Matrix4f model;
             Eigen::Matrix4f view;
             Eigen::Matrix4f projection;
