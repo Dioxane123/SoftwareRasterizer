@@ -1,6 +1,6 @@
 #include "rasterizer.hpp"
 #include <algorithm>
-#include <cstddef>
+#include <cmath>
 #include <eigen3/Eigen/Eigen>
 
 using namespace Eigen;
@@ -77,9 +77,48 @@ void rst::rasterizer::draw_line(const Eigen::Vector3f& begin, const Eigen::Vecto
     return;
 }
 
-void rst::rasterizer::rasterizer_triangle(const Triangle& t)
-{
-    
+bool insideTriangle(float x, float y, const Vector3f* _v){
+    std::array<Eigen::Vector3f, 3> v={(Eigen::Vector3f(_v[0].x(), _v[0].y(), 1.0f),
+                                      Eigen::Vector3f(_v[1].x(), _v[1].y(), 1.0f),
+                                      Eigen::Vector3f(_v[2].x(), _v[2].y(), 1.0f))};
+    Eigen::Vector3f p(x, y, 1.0f);
+    bool allPositive = true;
+    bool allNegative = true;
+    for(int i = 0; i < 3; ++i){
+        Eigen::Vector3f edge = v[(i + 1) % 3] - v[i];
+        Eigen::Vector3f toPoint = p - v[i];
+        if(edge.cross(toPoint).z() < 0){
+            allPositive = false;
+        }else{
+            allNegative = false;
+        }
+    }
+
+    return allPositive || allNegative;
+}
+
+void rst::rasterizer::rasterize_triangle(const Triangle& t){
+    std::array<Eigen::Vector4f, 3> v = {
+        (projection * view * model * t.toVector4f()[0]),
+        (projection * view * model * t.toVector4f()[1]),
+        (projection * view * model * t.toVector4f()[2])
+    };
+    std::transform(std::begin(v), std::end(v), std::begin(v), [](auto& vec){
+        return Eigen::Vector4f(vec.x()/vec.w(), vec.y()/vec.w(), vec.z()/vec.w(), 1.0f);
+    });
+    int x_min = std::floor(std::min({v[0].x(), v[1].x(), v[2].x()}));
+    int x_max = std::ceil(std::max({v[0].x(), v[1].x(), v[2].x()}));
+    int y_min = std::floor(std::min({v[0].y(), v[1].y(), v[2].y()}));
+    int y_max = std::ceil(std::max({v[0].y(), v[1].y(), v[2].y()}));
+
+    for(int i = x_min; i <= x_max; ++i){
+        for(int j = y_min; j <= y_max; ++j){
+            if(insideTriangle(i + 0.5f, j + 0.5f, t.v)){
+                rst::rasterizer::set_pixel(Eigen::Vector3f(i, j, 1.0), t.color[0]);
+            }
+        }
+    }
+
 }
 
 void rst::rasterizer::set_model(const Eigen::Matrix4f& m){
