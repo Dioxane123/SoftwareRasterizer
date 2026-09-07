@@ -3,6 +3,8 @@
 
 #include <eigen3/Eigen/Eigen>
 #include <algorithm>
+#include <map>
+#include <vector>
 #include "triangle.hpp"
 using namespace Eigen;
 
@@ -14,7 +16,7 @@ namespace rst {
 
     inline Buffers operator|(Buffers a, Buffers b){
         return Buffers((int)a | (int)b);
-    }
+    }//bit-wise operation
 
     inline Buffers operator&(Buffers a, Buffers b){
         return Buffers((int)a & (int)b);
@@ -31,6 +33,10 @@ namespace rst {
     }pos_buf_id;
 
     typedef struct{
+        int col_id = 0;
+    }col_buf_id;
+
+    typedef struct{
         int ind_id = 0;
     }ind_buf_id;
     
@@ -38,6 +44,7 @@ namespace rst {
         public:
             rasterizer(int width, int height);
             pos_buf_id load_positions(const std::vector<Eigen::Vector3f>& positions);
+            col_buf_id load_colors(const std::vector<Eigen::Vector3f>& colors);
             ind_buf_id load_indices(const std::vector<Eigen::Vector3i>& indices);
             
             void set_model(const Eigen::Matrix4f& m);
@@ -48,7 +55,9 @@ namespace rst {
 
             void clear(Buffers buffer);
 
-            void draw(pos_buf_id pos_buffer, ind_buf_id ind_buffer, Primitive type);
+            void draw(pos_buf_id pos_buffer, col_buf_id col_buffer, ind_buf_id ind_buffer, Primitive type);
+
+            const std::vector<Eigen::Vector3f>& frame_buffer() const { return frame_buf; }
         
         private:
             void draw_line(const Eigen::Vector3f& begin, const Eigen::Vector3f& end);
@@ -61,6 +70,7 @@ namespace rst {
 
             std::map<int, std::vector<Eigen::Vector3f>> pos_buf;
             std::map<int, std::vector<Eigen::Vector3i>> ind_buf;
+            std::map<int, std::vector<Eigen::Vector3f>> col_buf;
 
             std::vector<Eigen::Vector3f> frame_buf;
             std::vector<float> depth_buf;
