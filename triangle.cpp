@@ -15,6 +15,10 @@ Triangle::Triangle(){
     tex_coord[0] << 0, 0;
     tex_coord[1] << 0, 0;
     tex_coord[2] << 0, 0;
+
+    inv_w[0] = 1.0;
+    inv_w[1] = 1.0;
+    inv_w[2] = 1.0;
 }
 
 void Triangle::setVertex(int idx, Vector3f vertex){ v[idx] = vertex; }

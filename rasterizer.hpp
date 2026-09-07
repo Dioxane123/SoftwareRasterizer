@@ -51,6 +51,7 @@ namespace rst {
             void set_view(const Eigen::Matrix4f& v);
             void set_projection(const Eigen::Matrix4f& p);
 
+            int get_index(int x, int y);
             void set_pixel(const Vector3f& point, const Vector3f& color);
 
             void clear(Buffers buffer);

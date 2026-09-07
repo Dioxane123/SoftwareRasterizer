@@ -10,6 +10,7 @@ class Triangle{
         Vector3f color[3];
         Vector2f tex_coord[3];
         Vector3f n[3];
+        std::array<float, 3> inv_w;
 
         Triangle();
 

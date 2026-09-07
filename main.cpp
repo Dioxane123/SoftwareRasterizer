@@ -246,12 +246,17 @@ int main()
 {
     try {
         rst::rasterizer rasterizer(window_width, window_height);
-        // An equilateral triangle centered at the model origin, fully in view as it rotates.
+        // The camera is at z = 5: the first triangle is nearer (z = 0.5),
+        // and the second is farther (z = -1). They overlap and stay in view as they rotate.
         const auto positions = rasterizer.load_positions({
-            {0.0f, 1.2f, 0.0f}, {-1.0f, -0.6f, 0.0f}, {1.0f, -0.6f, 0.0f}});
-        const auto indices = rasterizer.load_indices({{0, 1, 2}});
+            {-0.4f, 1.2f, 0.5f}, {-1.4f, -0.8f, 0.5f}, {0.6f, -0.8f, 0.5f},
+            {0.5f, 1.3f, -1.0f}, {-0.5f, -0.9f, -1.0f}, {1.6f, -0.9f, -1.0f}});
+        // Draw the near triangle first so the far triangle must pass the depth test.
+        const auto indices = rasterizer.load_indices({{0, 1, 2}, {3, 4, 5}});
+        // Colors correspond one-to-one with the six positions: RGB, then yellow/cyan/magenta.
         const auto colors = rasterizer.load_colors({
-            {255.0f, 255.0f, 255.0f}, {255.0f, 255.0f, 255.0f}, {255.0f, 255.0f, 255.0f}});
+            {255.0f, 0.0f, 0.0f}, {0.0f, 255.0f, 0.0f}, {0.0f, 0.0f, 255.0f},
+            {255.0f, 255.0f, 0.0f}, {0.0f, 255.0f, 255.0f}, {255.0f, 0.0f, 255.0f}});
 
         // All three matrices enter the rasterizer through its public setters.
         rasterizer.set_view(get_view_matrix({0.0f, 0.0f, 5.0f}));
