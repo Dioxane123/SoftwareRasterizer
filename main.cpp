@@ -7,8 +7,10 @@
 #include <unistd.h>
 
 #include <algorithm>
+#include <chrono>
 #include <cmath>
 #include <cstdlib>
+#include <iomanip>
 #include <iostream>
 #include <stdexcept>
 #include <string>
@@ -176,15 +178,12 @@ public:
         XFlush(display_);
     }
 
-    // Block while idle. Return true when the image needs to be drawn again.
-    bool wait_for_redraw(float& angle)
+    // Drain pending events without blocking the continuous render loop.
+    bool process_events(float& angle)
     {
-        for (;;) {
+        while (XPending(display_) > 0) {
             XEvent event{};
             XNextEvent(display_, &event);
-            if (event.type == Expose && event.xexpose.count == 0) {
-                return true;
-            }
             if (event.type == KeyPress) {
                 const KeySym key = XLookupKeysym(&event.xkey, 0);
                 if (key == XK_Escape) {
@@ -192,11 +191,9 @@ public:
                 }
                 if (key == XK_q || key == XK_Q) {
                     angle = std::remainder(angle + rotation_step, 360.0f);
-                    return true;
                 }
                 if (key == XK_e || key == XK_E) {
                     angle = std::remainder(angle - rotation_step, 360.0f);
-                    return true;
                 }
             }
             if (event.type == ClientMessage && event.xclient.message_type == wm_protocols_ &&
@@ -209,6 +206,7 @@ public:
                 return false;
             }
         }
+        return true;
     }
 
 private:
@@ -262,13 +260,26 @@ int main()
 
         X11Window window(window_width, window_height);
         float angle = 0.0f;
+        using Clock = std::chrono::steady_clock;
+        auto last_fps_report = Clock::now();
+        std::size_t frame_count = 0;
         std::cout << "Q: rotate counterclockwise; E: rotate clockwise; Esc: quit.\n";
-        do {
+        while (window.process_events(angle)) {
             rasterizer.clear(rst::Buffers::Color | rst::Buffers::Depth);
             rasterizer.set_model(get_model_matrix(angle));
             rasterizer.draw(positions, colors, indices, rst::Primitive::Triangle);
             window.present(rasterizer.frame_buffer(), angle);
-        } while (window.wait_for_redraw(angle));
+            ++frame_count;
+
+            const auto now = Clock::now();
+            const double elapsed = std::chrono::duration<double>(now - last_fps_report).count();
+            if (elapsed >= 1.0) {
+                const double fps = static_cast<double>(frame_count) / elapsed;
+                std::cout << "FPS: " << std::fixed << std::setprecision(2) << fps << std::endl;
+                frame_count = 0;
+                last_fps_report = now;
+            }
+        }
     } catch (const std::exception& error) {
         std::cerr << "Software Rasterizer: " << error.what() << '\n';
         return EXIT_FAILURE;
