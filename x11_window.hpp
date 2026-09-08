@@ -17,7 +17,7 @@ public:
     void present(const std::vector<Eigen::Vector3f>& frame, float angle);
 
     // Drain pending events without blocking the continuous render loop.
-    bool process_events(float& angle);
+    bool process_events(float& angle, Eigen::Vector3f& camera_position);
 
 private:
     // X11 visuals describe where each RGB channel belongs in a native pixel.

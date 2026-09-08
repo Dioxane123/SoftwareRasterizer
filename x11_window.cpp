@@ -14,6 +14,7 @@
 namespace {
 
 constexpr float rotation_step = 5.0f;
+constexpr float move_step = 0.1f;
 
 } // namespace
 
@@ -124,7 +125,7 @@ void X11Window::present(const std::vector<Eigen::Vector3f>& frame, float angle)
     XFlush(display_);
 }
 
-bool X11Window::process_events(float& angle)
+bool X11Window::process_events(float& angle, Eigen::Vector3f& camera_position)
 {
     while (XPending(display_) > 0) {
         XEvent event{};
@@ -139,6 +140,24 @@ bool X11Window::process_events(float& angle)
             }
             if (key == XK_e || key == XK_E) {
                 angle = std::remainder(angle - rotation_step, 360.0f);
+            }
+            if (key == XK_w || key == XK_W) {
+                camera_position.z() -= move_step;
+            }
+            if (key == XK_s || key == XK_S) {
+                camera_position.z() += move_step;
+            }
+            if (key == XK_a || key == XK_A) {
+                camera_position.x() -= move_step;
+            }
+            if (key == XK_d || key == XK_D) {
+                camera_position.x() += move_step;
+            }
+            if (key == XK_Control_L || key == XK_Control_R) {
+                camera_position.y() -= move_step;
+            }
+            if (key == XK_space){
+                camera_position.y() += move_step;
             }
         }
         if (event.type == ClientMessage && event.xclient.message_type == wm_protocols_ &&
