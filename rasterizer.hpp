@@ -1,7 +1,7 @@
 #ifndef RASTERIZER_HPP
 #define RASTERIZER_HPP
 
-#include <eigen3/Eigen/Eigen>
+#include <Eigen/Eigen>
 #include <algorithm>
 #include <map>
 #include <vector>

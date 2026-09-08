@@ -1,7 +1,8 @@
 #ifndef TRIANGLE_HPP
 #define TRIANGLE_HPP
 
-#include <eigen3/Eigen/Eigen>
+#include <Eigen/Eigen>
+#include <array>
 
 using namespace Eigen;
 class Triangle{

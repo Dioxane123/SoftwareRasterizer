@@ -1,8 +1,10 @@
 #include "rasterizer.hpp"
 #include <algorithm>
 #include <cmath>
-#include <eigen3/Eigen/Eigen>
+#include <Eigen/Eigen>
+#include <limits>
 #include <stdexcept>
+#include <tuple>
 
 using namespace Eigen;
 

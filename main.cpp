@@ -1,5 +1,7 @@
 #include "rasterizer.hpp"
-#include "x11_window.hpp"
+#include "sdl_window.hpp"
+
+#include <SDL3/SDL_main.h>
 
 #include <chrono>
 #include <cmath>
@@ -57,7 +59,7 @@ Eigen::Matrix4f get_projection_matrix(float vertical_fov_degrees,
 
 } // namespace
 
-int main()
+int main(int, char**)
 {
     try {
         rst::rasterizer rasterizer(window_width, window_height);
@@ -73,13 +75,13 @@ int main()
         rasterizer.set_projection(get_projection_matrix(
             45.0f, 1.0f * window_width / window_height, 0.1f, 50.0f));
 
-        X11Window window(window_width, window_height);
+        SDLWindow window(window_width, window_height);
         float angle = 0.0f;
         Eigen::Vector3f camera_position(0.0f, 0.0f, 5.0f);
         using Clock = std::chrono::steady_clock;
         auto last_fps_report = Clock::now();
         std::size_t frame_count = 0;
-        std::cout << "Q: rotate counterclockwise; E: rotate clockwise; Esc: quit.\n";
+        std::cout << "Q/E: rotate; WASD: move camera; Space/Ctrl: move up/down; Esc: quit.\n";
         while (window.process_events(angle, camera_position)) {
             rasterizer.clear(rst::Buffers::Color | rst::Buffers::Depth);
             rasterizer.set_model(get_model_matrix(angle));
