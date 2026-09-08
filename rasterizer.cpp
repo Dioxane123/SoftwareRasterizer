@@ -121,18 +121,18 @@ static std::tuple<float, float, float> computeBarycentric2D(float x, float y, co
 }
 
 void rst::rasterizer::rasterize_triangle(const Triangle& t){
-    int x_min = std::floor(std::min({t.v[0].x(), t.v[1].x(), t.v[2].x()}));
-    int x_max = std::ceil(std::max({t.v[0].x(), t.v[1].x(), t.v[2].x()}));
-    int y_min = std::floor(std::min({t.v[0].y(), t.v[1].y(), t.v[2].y()}));
-    int y_max = std::ceil(std::max({t.v[0].y(), t.v[1].y(), t.v[2].y()}));
+    int x_min = std::floor(std::min({t.screen_pos[0].x(), t.screen_pos[1].x(), t.screen_pos[2].x()}));
+    int x_max = std::ceil(std::max({t.screen_pos[0].x(), t.screen_pos[1].x(), t.screen_pos[2].x()}));
+    int y_min = std::floor(std::min({t.screen_pos[0].y(), t.screen_pos[1].y(), t.screen_pos[2].y()}));
+    int y_max = std::ceil(std::max({t.screen_pos[0].y(), t.screen_pos[1].y(), t.screen_pos[2].y()}));
 
     for(int i = x_min; i <= x_max; ++i){
         for(int j = y_min; j <= y_max; ++j){
-            if(insideTriangle(i + 0.5f, j + 0.5f, t.v)){
+            if(insideTriangle(i + 0.5f, j + 0.5f, t.screen_pos)){
 
                 //Barycentric interpolation for color and depth
-                auto[alpha, beta, gamma] = computeBarycentric2D(i + 0.5f, j + 0.5f, t.v);
-                float z_interpolated = alpha * t.v[0].z() + beta * t.v[1].z() + gamma * t.v[2].z();
+                auto[alpha, beta, gamma] = computeBarycentric2D(i + 0.5f, j + 0.5f, t.screen_pos);
+                float z_interpolated = alpha * t.screen_pos[0].z() + beta * t.screen_pos[1].z() + gamma * t.screen_pos[2].z();
                 
                 int index = get_index(i, j);
                 if(z_interpolated < depth_buf[index]){
@@ -211,7 +211,7 @@ void rst::rasterizer::draw(pos_buf_id pos_buffer, col_buf_id col_buffer, ind_buf
         });
 
         for(int j = 0; j < 3; ++j){
-            t.setVertex(j, Eigen::Vector3f(v[j].x(), v[j].y(), v[j].z()));
+            t.setScreenPos(j, Eigen::Vector3f(v[j].x(), v[j].y(), v[j].z()));
         }
 
         triangle_list.push_back(t);
@@ -223,9 +223,9 @@ void rst::rasterizer::draw(pos_buf_id pos_buffer, col_buf_id col_buffer, ind_buf
         }
     }else if (type == Primitive::Line){
         for(const auto& t: triangle_list){
-            draw_line(t.v[0], t.v[1]);
-            draw_line(t.v[1], t.v[2]);
-            draw_line(t.v[2], t.v[0]);
+            draw_line(t.screen_pos[0], t.screen_pos[1]);
+            draw_line(t.screen_pos[1], t.screen_pos[2]);
+            draw_line(t.screen_pos[2], t.screen_pos[0]);
         }
     }
 }
