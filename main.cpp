@@ -67,7 +67,7 @@ int main(int, char**)
         const auto positions = rasterizer.load_positions({
             {-0.4f, 1.2f, -0.5f}, {-1.4f, -0.8f, -0.5f}, {0.6f, -0.8f, -0.5f},
             {0.5f, 1.3f, 1.0f}, {-0.5f, -0.9f, 1.0f}, {1.6f, -0.9f, 1.0f}});
-        const auto indices = rasterizer.load_indices({{0, 1, 2}, {3, 4, 5}});
+        const auto indices = rasterizer.load_indices({{0, 1, 2}, {0, 4, 5}});
         const auto colors = rasterizer.load_colors({
             {153.0f, 153.0f, 255.0f}, {153.0f, 153.0f, 255.0f}, {153.0f, 153.0f, 255.0f},
             {255.0f, 255.0f, 0.0f}, {0.0f, 255.0f, 255.0f}, {255.0f, 0.0f, 255.0f}});
