@@ -186,10 +186,20 @@ void rst::rasterizer::draw(pos_buf_id pos_buffer, col_buf_id col_buffer, ind_buf
     std::vector<Triangle> triangle_list;
     for(const auto& i: ind){
         Triangle t;
+        
+        Eigen::Vector3f normal = (pos[i[1]] - pos[i[0]]).cross(pos[i[2]] - pos[i[0]]);
+        if(normal.squaredNorm() < 1e-12f){
+            normal = Eigen::Vector3f(0, 0, 0);
+        }else{
+            Eigen::Matrix3f normalMatrix = (view * model).block<3, 3>(0, 0).inverse().transpose();
+            Eigen::Vector3f normalView = (normalMatrix * normal).normalized();
+            normal = normalView;
+        }
+
         for(int j = 0; j < 3; ++j){
             t.setVertex(j, pos[i[j]]);
-            //color is not implemented yet, so we just use the color of the first vertex
             t.setColor(j, col[i[j]].x(), col[i[j]].y(), col[i[j]].z());
+            t.setNormal(j, normal);
         }
 
         Eigen::Matrix4f mvp = projection * view * model;
