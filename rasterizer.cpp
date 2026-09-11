@@ -120,6 +120,21 @@ static std::tuple<float, float, float> computeBarycentric2D(float x, float y, co
     return {c1,c2,c3};
 }
 
+static float powInt(float a, int n){ return powInt(a, n - 1) * powInt(a, n - 1) : 1 ? n > 0}
+
+static Eigen::Vector3f shadeBlinnPhong(Eigen::Vector3f view_pos, Eigen::Vector3f n, Eigen::Vector3f kd){
+    Eigen::Vector3f L = Eigen::Vector3f(0.0f, 0.0f, 10.0f) - view_pos;
+    Eigen::Vector3f H = n + L;
+    H /= (n + L).norm();
+
+    Eigen::Vector3f I_ambient = Eigen::Vector3f(1.0f, 1.0f, 1.0f) * 0.05f;
+    Eigen::Vector3f I_diffuse = kd * 1.0 * std::max(n * L, Eigen::Vector3f(0.0f, 0.0f, 0.0f));
+    Eigen::Vector3f I_specular = kd * 1.0 * powInt(std::max(n * L, 0), 16);
+
+    return I_ambient + I_diffuse + I_specular;
+
+}
+
 void rst::rasterizer::rasterize_triangle(const Triangle& t){
     int x_min = std::floor(std::min({t.screen_pos[0].x(), t.screen_pos[1].x(), t.screen_pos[2].x()}));
     int x_max = std::ceil(std::max({t.screen_pos[0].x(), t.screen_pos[1].x(), t.screen_pos[2].x()}));
@@ -130,17 +145,31 @@ void rst::rasterizer::rasterize_triangle(const Triangle& t){
         for(int j = y_min; j <= y_max; ++j){
             if(insideTriangle(i + 0.5f, j + 0.5f, t.screen_pos)){
 
-                //Barycentric interpolation for color and depth
+                // Barycentric interpolation for depth(screen space)
                 auto[alpha, beta, gamma] = computeBarycentric2D(i + 0.5f, j + 0.5f, t.screen_pos);
                 float z_interpolated = alpha * t.screen_pos[0].z() + beta * t.screen_pos[1].z() + gamma * t.screen_pos[2].z();
                 
                 int index = get_index(i, j);
                 if(z_interpolated < depth_buf[index]){
                     depth_buf[index] = z_interpolated;
+
                     float w_reciprocal = 1.0f / (alpha * t.inv_w[0] + beta * t.inv_w[1] + gamma * t.inv_w[2]);
+
+                    // barycentric interpolation for color
                     Eigen::Vector3f c_interpolated = alpha * t.color[0] * t.inv_w[0] + beta * t.color[1] * t.inv_w[1] + gamma * t.color[2] * t.inv_w[2];
                     c_interpolated *= w_reciprocal;
-                    rst::rasterizer::set_pixel(Eigen::Vector3f(i, j, 1.0), c_interpolated);
+
+                    // barycentric interpolation for normal
+                    Eigen::Vector3f n_interpolated = alpha * t.n[0] * t.inv_w[0] + beta * t.n[1] * t.inv_w[1] + gamma * t.n[2] * t.inv_w[2];
+                    n_interpolated *= w_reciprocal;
+                    n_interpolated.normalize();
+                    
+                    // barycentric interpolation for coordinates(view space)
+                    Eigen::Vector3f view_pos = alpha * t.v[0] * t.inv_w[0] + beta * t.v[1] * t.inv_w[1] + gamma * t.v[2] * t.inv_w[2];
+                    view_pos *= w_reciprocal;
+
+
+                    rst::rasterizer::set_pixel(Eigen::Vector3f(i, j, 1.0), shadeBlinnPhong(view_pos, n_interpolated, c_interpolated));
                 }
 
             }
