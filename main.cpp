@@ -78,6 +78,7 @@ int main(int, char**)
         SDLWindow window(window_width, window_height);
         float angle = 0.0f;
         Eigen::Vector3f camera_position(0.0f, 0.0f, 5.0f);
+        Eigen::Vector3f light_position(0.0f, 1.0f, 5.0f);
         using Clock = std::chrono::steady_clock;
         auto last_fps_report = Clock::now();
         std::size_t frame_count = 0;
@@ -87,7 +88,7 @@ int main(int, char**)
             rasterizer.set_model(get_model_matrix(angle));
             // 设置相机位置
             rasterizer.set_view(get_view_matrix(camera_position));
-            rasterizer.draw(positions, colors, indices, rst::Primitive::Triangle);
+            rasterizer.draw(positions, colors, indices, light_position, rst::Primitive::Triangle);
             window.present(rasterizer.frame_buffer(), angle);
             ++frame_count;
 

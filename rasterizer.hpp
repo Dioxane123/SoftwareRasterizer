@@ -56,13 +56,13 @@ namespace rst {
 
             void clear(Buffers buffer);
 
-            void draw(pos_buf_id pos_buffer, col_buf_id col_buffer, ind_buf_id ind_buffer, Primitive type);
+            void draw(pos_buf_id pos_buffer, col_buf_id col_buffer, ind_buf_id ind_buffer, Eigen::Vector3f light_pos, Primitive type);
 
             const std::vector<Eigen::Vector3f>& frame_buffer() const { return frame_buf; }
         
         private:
             void draw_line(const Eigen::Vector3f& begin, const Eigen::Vector3f& end);
-            void rasterize_triangle(const Triangle& t);
+            void rasterize_triangle(const Triangle& t, Eigen::Vector3f light_pos);
 
         private:
             Eigen::Matrix4f model;

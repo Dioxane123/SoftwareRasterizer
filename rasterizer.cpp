@@ -114,28 +114,41 @@ static bool insideTriangle(float x, float y, const Eigen::Vector3f(&_v)[3]){
 
 static std::tuple<float, float, float> computeBarycentric2D(float x, float y, const Vector3f* v)
 {
+    //copied from games101
     float c1 = (x*(v[1].y() - v[2].y()) + (v[2].x() - v[1].x())*y + v[1].x()*v[2].y() - v[2].x()*v[1].y()) / (v[0].x()*(v[1].y() - v[2].y()) + (v[2].x() - v[1].x())*v[0].y() + v[1].x()*v[2].y() - v[2].x()*v[1].y());
     float c2 = (x*(v[2].y() - v[0].y()) + (v[0].x() - v[2].x())*y + v[2].x()*v[0].y() - v[0].x()*v[2].y()) / (v[1].x()*(v[2].y() - v[0].y()) + (v[0].x() - v[2].x())*v[1].y() + v[2].x()*v[0].y() - v[0].x()*v[2].y());
     float c3 = (x*(v[0].y() - v[1].y()) + (v[1].x() - v[0].x())*y + v[0].x()*v[1].y() - v[1].x()*v[0].y()) / (v[2].x()*(v[0].y() - v[1].y()) + (v[1].x() - v[0].x())*v[2].y() + v[0].x()*v[1].y() - v[1].x()*v[0].y());
     return {c1,c2,c3};
 }
 
-static float powInt(float a, int n){ return n > 0 ? a * powInt(a, n - 1) : 1;}
+static float powInt(float a, int n){
+    float res = 1.0f;
+    while(n > 0){
+        if(n & 1)res *= a;
+        a *= a;
+        n >>= 1;
+    }
+    return res;
+}
 
-static Eigen::Vector3f shadeBlinnPhong(Eigen::Vector3f view_pos, Eigen::Vector3f n, Eigen::Vector3f kd){
-    Eigen::Vector3f L = (Eigen::Vector3f(0.0f, 0.0f, 10.0f) - view_pos).normalized();
+static Eigen::Vector3f shadeBlinnPhong(Eigen::Vector3f view_pos, Eigen::Vector3f n, 
+                                        Eigen::Vector3f kd, Eigen::Vector3f light_view){
+    Eigen::Vector3f L = (light_view - view_pos).normalized();
     Eigen::Vector3f V = (-view_pos).normalized();
     Eigen::Vector3f H = (V + L).normalized();
 
-    Eigen::Vector3f I_ambient = Eigen::Vector3f(1.0f, 1.0f, 1.0f) * 0.05f;
-    Eigen::Vector3f I_diffuse = kd * 1.0 * std::max(n.dot(L), 0.0f);
-    Eigen::Vector3f I_specular = kd * 1.0 * powInt(std::max(n.dot(H), 0.0f), 8);
+    Eigen::Vector3f I_ambient = Eigen::Vector3f(1.0f, 1.0f, 1.0f) * 0.1f;
+
+    float n_dot_L = std::max(n.dot(L), 0.0f);
+    Eigen::Vector3f ks(0.8f, 0.8f, 0.8f);
+    Eigen::Vector3f I_diffuse = kd * 1.0 * n_dot_L;
+    Eigen::Vector3f I_specular = ks * (n_dot_L > 0.0f ? 1.0 * powInt(std::max(n.dot(H), 0.0f), 8) : 0);
 
     return I_ambient + I_diffuse + I_specular;
 
 }
 
-void rst::rasterizer::rasterize_triangle(const Triangle& t){
+void rst::rasterizer::rasterize_triangle(const Triangle& t, Eigen::Vector3f light_view){
     int x_min = std::floor(std::min({t.screen_pos[0].x(), t.screen_pos[1].x(), t.screen_pos[2].x()}));
     int x_max = std::ceil(std::max({t.screen_pos[0].x(), t.screen_pos[1].x(), t.screen_pos[2].x()}));
     int y_min = std::floor(std::min({t.screen_pos[0].y(), t.screen_pos[1].y(), t.screen_pos[2].y()}));
@@ -147,29 +160,36 @@ void rst::rasterizer::rasterize_triangle(const Triangle& t){
 
                 // Barycentric interpolation for depth(screen space)
                 auto[alpha, beta, gamma] = computeBarycentric2D(i + 0.5f, j + 0.5f, t.screen_pos);
-                float z_interpolated = alpha * t.screen_pos[0].z() + beta * t.screen_pos[1].z() + gamma * t.screen_pos[2].z();
+                float z_interpolated = alpha * t.screen_pos[0].z() + beta * t.screen_pos[1].z() +
+                                        gamma * t.screen_pos[2].z();
                 
                 int index = get_index(i, j);
                 if(z_interpolated < depth_buf[index]){
                     depth_buf[index] = z_interpolated;
 
-                    float w_reciprocal = 1.0f / (alpha * t.inv_w[0] + beta * t.inv_w[1] + gamma * t.inv_w[2]);
+                    float w_reciprocal = 1.0f / 
+                                        (alpha * t.inv_w[0] + beta * t.inv_w[1] + 
+                                        gamma * t.inv_w[2]);
 
                     // barycentric interpolation for color
-                    Eigen::Vector3f c_interpolated = alpha * t.color[0] * t.inv_w[0] + beta * t.color[1] * t.inv_w[1] + gamma * t.color[2] * t.inv_w[2];
+                    Eigen::Vector3f c_interpolated = alpha * t.color[0] * t.inv_w[0] + 
+                                    beta * t.color[1] * t.inv_w[1] + gamma * t.color[2] * t.inv_w[2];
                     c_interpolated *= w_reciprocal;
 
                     // barycentric interpolation for normal
-                    Eigen::Vector3f n_interpolated = alpha * t.n[0] * t.inv_w[0] + beta * t.n[1] * t.inv_w[1] + gamma * t.n[2] * t.inv_w[2];
+                    Eigen::Vector3f n_interpolated = alpha * t.n[0] * t.inv_w[0] +
+                                    beta * t.n[1] * t.inv_w[1] + gamma * t.n[2] * t.inv_w[2];
                     n_interpolated *= w_reciprocal;
                     n_interpolated.normalize();
                     
                     // barycentric interpolation for coordinates(view space)
-                    Eigen::Vector3f view_pos = alpha * t.v[0] * t.inv_w[0] + beta * t.v[1] * t.inv_w[1] + gamma * t.v[2] * t.inv_w[2];
+                    Eigen::Vector3f view_pos = alpha * t.v[0] * t.inv_w[0] + 
+                                    beta * t.v[1] * t.inv_w[1] + gamma * t.v[2] * t.inv_w[2];
                     view_pos *= w_reciprocal;
 
 
-                    rst::rasterizer::set_pixel(Eigen::Vector3f(i, j, 1.0), shadeBlinnPhong(view_pos, n_interpolated, c_interpolated));
+                    rst::rasterizer::set_pixel(Eigen::Vector3f(i, j, 1.0), 
+                                shadeBlinnPhong(view_pos, n_interpolated, c_interpolated, light_view));
                 }
 
             }
@@ -207,7 +227,8 @@ void rst::rasterizer::clear(Buffers buff){
     }
 }
 
-void rst::rasterizer::draw(pos_buf_id pos_buffer, col_buf_id col_buffer, ind_buf_id ind_buffer, Primitive type){
+void rst::rasterizer::draw(pos_buf_id pos_buffer, col_buf_id col_buffer,
+                            ind_buf_id ind_buffer, Eigen::Vector3f light_pos, Primitive type){
     auto& pos = pos_buf[pos_buffer.pos_id];
     auto& col = col_buf[col_buffer.col_id];
     auto& ind = ind_buf[ind_buffer.ind_id];
@@ -227,7 +248,7 @@ void rst::rasterizer::draw(pos_buf_id pos_buffer, col_buf_id col_buffer, ind_buf
         }
 
         for(int j = 0; j < 3; ++j){
-        t.setVertex(j, (mv * pos[i[j]].homogeneous()).head<3>());
+            t.setVertex(j, (mv * pos[i[j]].homogeneous()).head<3>());
             t.setColor(j, col[i[j]].x(), col[i[j]].y(), col[i[j]].z());
             t.setNormal(j, normal);
         }
@@ -245,7 +266,8 @@ void rst::rasterizer::draw(pos_buf_id pos_buffer, col_buf_id col_buffer, ind_buf
             vec = Eigen::Vector4f(vec.x()/vec.w(), vec.y()/vec.w(), vec.z()/vec.w(), 1.0f);
         }
         for(auto& vec: v){
-            vec = Eigen::Vector4f(0.5f * width * (vec.x() + 1.0f), 0.5f * height * (vec.y() + 1.0f), vec.z(), 1.0f);
+            vec = Eigen::Vector4f(0.5f * width * (vec.x() + 1.0f),
+                                0.5f * height * (vec.y() + 1.0f), vec.z(), 1.0f);
         }
 
         for(int j = 0; j < 3; ++j){
@@ -256,8 +278,11 @@ void rst::rasterizer::draw(pos_buf_id pos_buffer, col_buf_id col_buffer, ind_buf
     }
 
     if(type == Primitive::Triangle){
+        // coordinate of light in view space
+        Eigen::Vector3f light_view = (view * light_pos.homogeneous()).head<3>();
+
         for(const auto& t: triangle_list){
-            rasterize_triangle(t);
+            rasterize_triangle(t, light_view);
         }
     }else if (type == Primitive::Line){
         for(const auto& t: triangle_list){
