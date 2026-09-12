@@ -120,16 +120,16 @@ static std::tuple<float, float, float> computeBarycentric2D(float x, float y, co
     return {c1,c2,c3};
 }
 
-static float powInt(float a, int n){ return powInt(a, n - 1) * powInt(a, n - 1) : 1 ? n > 0}
+static float powInt(float a, int n){ return n > 0 ? a * powInt(a, n - 1) : 1;}
 
 static Eigen::Vector3f shadeBlinnPhong(Eigen::Vector3f view_pos, Eigen::Vector3f n, Eigen::Vector3f kd){
-    Eigen::Vector3f L = Eigen::Vector3f(0.0f, 0.0f, 10.0f) - view_pos;
-    Eigen::Vector3f H = n + L;
-    H /= (n + L).norm();
+    Eigen::Vector3f L = (Eigen::Vector3f(0.0f, 0.0f, 10.0f) - view_pos).normalized();
+    Eigen::Vector3f V = (-view_pos).normalized();
+    Eigen::Vector3f H = (V + L).normalized();
 
     Eigen::Vector3f I_ambient = Eigen::Vector3f(1.0f, 1.0f, 1.0f) * 0.05f;
-    Eigen::Vector3f I_diffuse = kd * 1.0 * std::max(n * L, Eigen::Vector3f(0.0f, 0.0f, 0.0f));
-    Eigen::Vector3f I_specular = kd * 1.0 * powInt(std::max(n * L, 0), 16);
+    Eigen::Vector3f I_diffuse = kd * 1.0 * std::max(n.dot(L), 0.0f);
+    Eigen::Vector3f I_specular = kd * 1.0 * powInt(std::max(n.dot(H), 0.0f), 8);
 
     return I_ambient + I_diffuse + I_specular;
 
@@ -217,37 +217,36 @@ void rst::rasterizer::draw(pos_buf_id pos_buffer, col_buf_id col_buffer, ind_buf
         Triangle t;
         
         Eigen::Vector3f normal = (pos[i[1]] - pos[i[0]]).cross(pos[i[2]] - pos[i[0]]);
+        Eigen::Matrix4f mv = view * model;
         if(normal.squaredNorm() < 1e-12f){
             normal = Eigen::Vector3f(0, 0, 0);
         }else{
-            Eigen::Matrix3f normalMatrix = (view * model).block<3, 3>(0, 0).inverse().transpose();
+            Eigen::Matrix3f normalMatrix = mv.block<3, 3>(0, 0).inverse().transpose();
             Eigen::Vector3f normalView = (normalMatrix * normal).normalized();
             normal = normalView;
         }
 
         for(int j = 0; j < 3; ++j){
-            t.setVertex(j, pos[i[j]]);
+        t.setVertex(j, (mv * pos[i[j]].homogeneous()).head<3>());
             t.setColor(j, col[i[j]].x(), col[i[j]].y(), col[i[j]].z());
             t.setNormal(j, normal);
         }
 
-        Eigen::Matrix4f mvp = projection * view * model;
-        std::array<Eigen::Vector4f, 3> v = {
-            (mvp * t.toVector4f()[0]),
-            (mvp * t.toVector4f()[1]),
-            (mvp * t.toVector4f()[2])
-        };
+        std::array<Eigen::Vector4f, 3> v = t.toVector4f();
+        for(auto& vertex: v){
+            vertex = projection * vertex;
+        }
 
         std::transform(std::begin(v), std::end(v), std::begin(t.inv_w), [](auto& vec){
             return 1.0f / vec.w();
         });
 
-        std::transform(std::begin(v), std::end(v), std::begin(v), [](auto& vec){
-            return Eigen::Vector4f(vec.x()/vec.w(), vec.y()/vec.w(), vec.z()/vec.w(), 1.0f);
-        });
-        std::transform(std::begin(v), std::end(v), std::begin(v), [this](auto& vec){
-            return Eigen::Vector4f(0.5f * width * (vec.x() + 1.0f), 0.5f * height * (vec.y() + 1.0f), vec.z(), 1.0f);
-        });
+        for(auto& vec: v){
+            vec = Eigen::Vector4f(vec.x()/vec.w(), vec.y()/vec.w(), vec.z()/vec.w(), 1.0f);
+        }
+        for(auto& vec: v){
+            vec = Eigen::Vector4f(0.5f * width * (vec.x() + 1.0f), 0.5f * height * (vec.y() + 1.0f), vec.z(), 1.0f);
+        }
 
         for(int j = 0; j < 3; ++j){
             t.setScreenPos(j, Eigen::Vector3f(v[j].x(), v[j].y(), v[j].z()));

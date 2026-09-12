@@ -7,11 +7,11 @@
 using namespace Eigen;
 class Triangle{
     public:
-        Vector3f v[3];
-        Vector3f screen_pos[3];
+        Vector3f v[3]; // view space coordinate
+        Vector3f screen_pos[3]; // screen space coordinate
         Vector3f color[3];
         Vector2f tex_coord[3];
-        Vector3f n[3];
+        Vector3f n[3]; // view space vector
         std::array<float, 3> inv_w;
 
         Triangle();
