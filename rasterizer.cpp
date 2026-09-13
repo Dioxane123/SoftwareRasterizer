@@ -153,6 +153,10 @@ void rst::rasterizer::rasterize_triangle(const Triangle& t, Eigen::Vector3f ligh
     int x_max = std::ceil(std::max({t.screen_pos[0].x(), t.screen_pos[1].x(), t.screen_pos[2].x()}));
     int y_min = std::floor(std::min({t.screen_pos[0].y(), t.screen_pos[1].y(), t.screen_pos[2].y()}));
     int y_max = std::ceil(std::max({t.screen_pos[0].y(), t.screen_pos[1].y(), t.screen_pos[2].y()}));
+    x_min = x_min >= 0 ? x_min : 0;
+    x_max = x_max < width ? x_max : width - 1;
+    y_min = y_min >= 0 ? y_min : 0;
+    y_max = y_max < height ? y_max : height - 1;
 
     for(int i = x_min; i <= x_max; ++i){
         for(int j = y_min; j <= y_max; ++j){
