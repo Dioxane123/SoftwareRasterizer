@@ -237,9 +237,7 @@ void rst::rasterizer::draw(pos_buf_id pos_buffer, col_buf_id col_buffer,
     auto& col = col_buf[col_buffer.col_id];
     auto& ind = ind_buf[ind_buffer.ind_id];
 
-    //Frustum culling waiting to be implete
-
-    std::vector<Triangle> triangle_list;
+    std::vector<Triangle> ori_triangle_list;
     for(const auto& i: ind){
         Triangle t;
         
@@ -280,7 +278,12 @@ void rst::rasterizer::draw(pos_buf_id pos_buffer, col_buf_id col_buffer,
             t.setScreenPos(j, Eigen::Vector3f(v[j].x(), v[j].y(), v[j].z()));
         }
 
-        triangle_list.push_back(t);
+        ori_triangle_list.push_back(t);
+    }
+
+    std::vector<Triangle> triangle_list;
+    for(const auto& t: ori_triangle_list){
+        //anti-clockwise: +y, -x, 
     }
 
     if(type == Primitive::Triangle){
