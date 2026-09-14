@@ -231,13 +231,19 @@ void rst::rasterizer::clear(Buffers buff){
     }
 }
 
+static Eigen::Vector4f interpolateVertex(const Eigen::Vector4f& a,
+                                        const Eigen::Vector4f& b,
+                                        float t){ return (1 - t) * a + t * b; }
+
+
+
 void rst::rasterizer::draw(pos_buf_id pos_buffer, col_buf_id col_buffer,
                             ind_buf_id ind_buffer, Eigen::Vector3f light_pos, Primitive type){
     auto& pos = pos_buf[pos_buffer.pos_id];
     auto& col = col_buf[col_buffer.col_id];
     auto& ind = ind_buf[ind_buffer.ind_id];
 
-    std::vector<Triangle> ori_triangle_list;
+    std::vector<Triangle> triangle_list;
     for(const auto& i: ind){
         Triangle t;
         
@@ -262,6 +268,8 @@ void rst::rasterizer::draw(pos_buf_id pos_buffer, col_buf_id col_buffer,
             vertex = projection * vertex;
         }
 
+
+
         std::transform(std::begin(v), std::end(v), std::begin(t.inv_w), [](auto& vec){
             return 1.0f / vec.w();
         });
@@ -278,12 +286,7 @@ void rst::rasterizer::draw(pos_buf_id pos_buffer, col_buf_id col_buffer,
             t.setScreenPos(j, Eigen::Vector3f(v[j].x(), v[j].y(), v[j].z()));
         }
 
-        ori_triangle_list.push_back(t);
-    }
-
-    std::vector<Triangle> triangle_list;
-    for(const auto& t: ori_triangle_list){
-        //anti-clockwise: +y, -x, 
+        triangle_list.push_back(t);
     }
 
     if(type == Primitive::Triangle){
