@@ -149,14 +149,15 @@ static Eigen::Vector3f shadeBlinnPhong(Eigen::Vector3f view_pos, Eigen::Vector3f
 }
 
 void rst::rasterizer::rasterize_triangle(const Triangle& t, Eigen::Vector3f light_view){
-    int x_min = std::floor(std::min({t.screen_pos[0].x(), t.screen_pos[1].x(), t.screen_pos[2].x()}));
-    int x_max = std::ceil(std::max({t.screen_pos[0].x(), t.screen_pos[1].x(), t.screen_pos[2].x()}));
-    int y_min = std::floor(std::min({t.screen_pos[0].y(), t.screen_pos[1].y(), t.screen_pos[2].y()}));
-    int y_max = std::ceil(std::max({t.screen_pos[0].y(), t.screen_pos[1].y(), t.screen_pos[2].y()}));
-    x_min = x_min >= 0 ? x_min : 0;
-    x_max = x_max < width ? x_max : width - 1;
-    y_min = y_min >= 0 ? y_min : 0;
-    y_max = y_max < height ? y_max : height - 1;
+    if((t.screen_pos[1].x() - t.screen_pos[0].x()) * (t.screen_pos[2].y() - t.screen_pos[0].y()) -
+(t.screen_pos[1].y() - t.screen_pos[0].y()) * (t.screen_pos[2].x() - t.screen_pos[0].x()) < 2e-14f){
+        return;
+    }
+
+    int x_min = std::floor(std::min({t.screen_pos[0].x(), t.screen_pos[1].x(), t.screen_pos[2].x(), 1.0f*(width-1)}));
+    int x_max = std::ceil(std::max({t.screen_pos[0].x(), t.screen_pos[1].x(), t.screen_pos[2].x(), 0.0f}));
+    int y_min = std::floor(std::min({t.screen_pos[0].y(), t.screen_pos[1].y(), t.screen_pos[2].y(), 1.0f*(height-1)}));
+    int y_max = std::ceil(std::max({t.screen_pos[0].y(), t.screen_pos[1].y(), t.screen_pos[2].y(), 0.0f}));
 
     for(int i = x_min; i <= x_max; ++i){
         for(int j = y_min; j <= y_max; ++j){
@@ -231,29 +232,45 @@ void rst::rasterizer::clear(Buffers buff){
     }
 }
 
-static Eigen::Vector4f interpolateVertex(const Eigen::Vector4f& a,
-                                        const Eigen::Vector4f& b,
-                                        float t){ return (1 - t) * a + t * b; }
+template<typename T>
+static T interpolateVertex(const T& a, const T& b, float t){
+    return (1 - t) * a + t * b;
+}
 
-static std::vector<Eigen::Vector4f> polyAgainstPlane(const std::vector<Eigen::Vector4f>& input,
-                                                    const Eigen::Vector4f& plane){
-    std::vector<Eigen::Vector4f> output;
-    if(input.empty())return output;
+namespace{
+    struct triangleElem{
+        std::vector<Eigen::Vector4f> v;
+        std::vector<Eigen::Vector3f> col;
+        std::vector<Eigen::Vector3f> n;
+    };
+}
 
-    Eigen::Vector4f S = input.back();
-    for(auto& E: input){
-        float DS = S.dot(plane);
-        float DE = E.dot(plane);
-        if(DS >= 0 ^ DE >= 0)output.push_back(interpolateVertex(S, E, DS / (DS - DE)));
-        if(DE >= 0)output.push_back(E);
+static triangleElem polyAgainstPlane(const triangleElem& input, const Eigen::Vector4f& plane){
+    triangleElem output;
+
+    if(input.v.empty())return output;
+
+    int S = input.v.size() - 1;
+    for(int E = 0; E < input.v.size(); ++E){
+        float DS = input.v[S].dot(plane);
+        float DE = input.v[E].dot(plane);
+        if((DS > 0 && DE < 0) || (DS < 0 && DE > 0)){ // maybe have float percision bug
+            float t = DS / (DS - DE);
+            output.v.push_back(interpolateVertex(input.v[S], input.v[E], t));
+            output.col.push_back(interpolateVertex(input.col[S], input.col[E], t));
+            output.n.push_back(interpolateVertex(input.n[S], input.n[E], t));
+        }
+        if(DE >= 0){
+            output.v.push_back(input.v[E]);
+            output.col.push_back(input.col[E]);
+            output.n.push_back(input.n[E]);
+        }
         S = E;
     } 
 
     return output;
 
 }
-
-
 
 void rst::rasterizer::draw(pos_buf_id pos_buffer, col_buf_id col_buffer,
                             ind_buf_id ind_buffer, Eigen::Vector3f light_pos, Primitive type){
@@ -286,25 +303,40 @@ void rst::rasterizer::draw(pos_buf_id pos_buffer, col_buf_id col_buffer,
             vertex = projection * vertex;
         }
 
-
-
-        std::transform(std::begin(v), std::end(v), std::begin(t.inv_w), [](auto& vec){
-            return 1.0f / vec.w();
-        });
-
-        for(auto& vec: v){
-            vec = Eigen::Vector4f(vec.x()/vec.w(), vec.y()/vec.w(), vec.z()/vec.w(), 1.0f);
-        }
-        for(auto& vec: v){
-            vec = Eigen::Vector4f(0.5f * width * (vec.x() + 1.0f),
-                                0.5f * height * (vec.y() + 1.0f), vec.z(), 1.0f);
+        triangleElem input;
+        for(int i = 0; i < 3; ++i){
+            input.v.push_back(v[i]);
+            input.col.push_back(t.color[i]);
+            input.n.push_back(t.n[i]);
         }
 
-        for(int j = 0; j < 3; ++j){
-            t.setScreenPos(j, Eigen::Vector3f(v[j].x(), v[j].y(), v[j].z()));
-        }
+        input = polyAgainstPlane(input, Eigen::Vector4f(0.0f, 0.0f, 1.0f, 1.0f));// z-near
+        input = polyAgainstPlane(input, Eigen::Vector4f(0.0f, 0.0f, -1.0f, 1.0f));// z-far
+        Eigen::Matrix4f proj_inv = projection.inverse();
 
-        triangle_list.push_back(t);
+        if(input.v.size() < 3)continue;
+        for(int i = 0; i < input.v.size()-2; ++i){
+            Triangle tri;
+            tri.setVertex(0, (proj_inv * input.v[0]).head<3>());
+            tri.setColorNorm(0, input.col[0].x(), input.col[0].y(), input.col[0].z());
+            tri.setNormal(0, input.n[0]);
+            tri.inv_w[0] = 1.0f / input.v[0].w();
+            Eigen::Vector4f SP = input.v[0]; //Screen Position
+            SP << SP.x()/SP.w(), SP.y()/SP.w(), SP.z()/SP.w(), 1.0f;
+            SP << 0.5f * width * (SP.x() + 1.0f), 0.5f * height * (SP.y() + 1.0f), SP.z(), 1.0f; 
+            tri.setScreenPos(0, SP.head<3>());
+            for(int j = i + 1; j < i + 3; ++j){
+                tri.setVertex(j-i, (proj_inv * input.v[j]).head<3>());
+                tri.setColorNorm(j-i, input.col[j].x(), input.col[j].y(), input.col[j].z());
+                tri.setNormal(j-i, input.n[j]);
+                tri.inv_w[j-i] = 1.0f / input.v[j].w();
+                Eigen::Vector4f SP = input.v[j]; //Screen Position
+                SP << SP.x()/SP.w(), SP.y()/SP.w(), SP.z()/SP.w(), 1.0f;
+                SP << 0.5f * width * (SP.x() + 1.0f), 0.5f * height * (SP.y() + 1.0f), SP.z(), 1.0f; 
+                tri.setScreenPos(j-i, SP.head<3>());
+            }
+            triangle_list.push_back(tri);
+        }
     }
 
     if(type == Primitive::Triangle){
