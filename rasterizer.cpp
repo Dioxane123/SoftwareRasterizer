@@ -235,6 +235,24 @@ static Eigen::Vector4f interpolateVertex(const Eigen::Vector4f& a,
                                         const Eigen::Vector4f& b,
                                         float t){ return (1 - t) * a + t * b; }
 
+static std::vector<Eigen::Vector4f> polyAgainstPlane(const std::vector<Eigen::Vector4f>& input,
+                                                    const Eigen::Vector4f& plane){
+    std::vector<Eigen::Vector4f> output;
+    if(input.empty())return output;
+
+    Eigen::Vector4f S = input.back();
+    for(auto& E: input){
+        float DS = S.dot(plane);
+        float DE = E.dot(plane);
+        if(DS >= 0 ^ DE >= 0)output.push_back(interpolateVertex(S, E, DS / (DS - DE)));
+        if(DE >= 0)output.push_back(E);
+        S = E;
+    } 
+
+    return output;
+
+}
+
 
 
 void rst::rasterizer::draw(pos_buf_id pos_buffer, col_buf_id col_buffer,
