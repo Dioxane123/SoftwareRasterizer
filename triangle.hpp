@@ -23,6 +23,7 @@ class Triangle{
         void setVertex(int idx, Vector3f vertex);
         void setScreenPos(int idx, Vector3f screen_pos);
         void setColor(int idx, float r, float g, float b);
+        void setColorNorm(int idx, float r, float g, float b);
         void setTexCoord(int idx, float s, float t);
         void setNormal(int idx, Vector3f normal);
         std::array<Vector4f, 3> toVector4f() const;

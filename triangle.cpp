@@ -2,6 +2,7 @@
 #include <array>
 #include <algorithm>
 #include <stdexcept>
+#include <iostream>
 
 Triangle::Triangle(){
     v[0] << 0, 0, 0;
@@ -33,9 +34,14 @@ void Triangle::setColor(int idx, float r, float g, float b){
         throw std::invalid_argument("Color values must be in the range [0, 255]");
     }
 
-    color[idx] << Vector3f(r / 255.0, g / 255.0, b / 255.0);
+    if(r <= 1.0 || r <= 1.0 || b <= 1.0){
+        std::cerr << "Warning: your color value is less than 1.0f. Please check if you used normalized color value with setColor().\n";
+    }
+
+    color[idx] = Eigen::Vector3f(r / 255.0, g / 255.0, b / 255.0);
     return;
 }
+void Triangle::setColorNorm(int idx, float r, float g, float b){ color[idx] = Eigen::Vector3f(r, g, b); }
 void Triangle::setTexCoord(int idx, float s, float t){ tex_coord[idx] << Vector2f(s, t); }
 std::array<Vector4f, 3> Triangle::toVector4f() const {
     std::array<Vector4f, 3> res;
