@@ -28,17 +28,17 @@ namespace rst {
     };
 
     //for type safety.
-    typedef struct{
+    struct pos_buf_id {
         int pos_id = 0;
-    }pos_buf_id;
+    };
 
-    typedef struct{
+    struct col_buf_id {
         int col_id = 0;
-    }col_buf_id;
+    };
 
-    typedef struct{
+    struct ind_buf_id {
         int ind_id = 0;
-    }ind_buf_id;
+    };
     
     class rasterizer{
         public:
