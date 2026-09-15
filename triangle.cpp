@@ -34,10 +34,6 @@ void Triangle::setColor(int idx, float r, float g, float b){
         throw std::invalid_argument("Color values must be in the range [0, 255]");
     }
 
-    if(r <= 1.0 || r <= 1.0 || b <= 1.0){
-        std::cerr << "Warning: your color value is less than 1.0f. Please check if you used normalized color value with setColor().\n";
-    }
-
     color[idx] = Eigen::Vector3f(r / 255.0, g / 255.0, b / 255.0);
     return;
 }
