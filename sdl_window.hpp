@@ -9,7 +9,7 @@ struct SDL_Window;
 struct SDL_Renderer;
 struct SDL_Texture;
 
-// Presents the CPU framebuffer and receives keyboard/window events through SDL3.
+// Presents the CPU framebuffer and receives keyboard/mouse/window events through SDL3.
 // Construct, use, and destroy this window on the main thread.
 class SDLWindow {
 public:
@@ -20,8 +20,9 @@ public:
 
     void present(const std::vector<Eigen::Vector3f>& frame, float angle);
 
-    // Drain pending events without blocking the continuous render loop.
-    bool process_events(float& angle, Eigen::Vector3f& camera_position);
+    // Drain pending events; camera pitch/yaw are accumulated in radians.
+    bool process_events(float& angle, Eigen::Vector3f& camera_position,
+                        float& camera_pitch, float& camera_yaw);
 
 private:
     void release() noexcept;

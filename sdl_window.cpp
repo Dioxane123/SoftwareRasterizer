@@ -12,8 +12,11 @@ namespace {
 
 constexpr float rotation_step = 5.0f;
 constexpr float move_step = 0.1f;
+constexpr float pi = 3.14159265358979323846f;
+constexpr float mouse_sensitivity = 0.0025f; // Radians per pixel of relative motion.
+constexpr float pitch_limit = 89.0f * pi / 180.0f;
 constexpr const char* window_title =
-    "Software Rasterizer | Q/E: rotate | WASD/Space/Ctrl: move | Esc: quit";
+    "Software Rasterizer | Mouse: look | Q/E: rotate | WASD/Space/Ctrl: move | Esc: quit";
 
 [[noreturn]] void throw_sdl_error(const char* operation)
 {
@@ -56,6 +59,10 @@ SDLWindow::SDLWindow(int width, int height) : width_(width), height_(height)
             !SDL_SetTextureScaleMode(texture_, SDL_SCALEMODE_NEAREST) ||
             !SDL_SetRenderDrawColor(renderer_, 0, 0, 0, 255)) {
             throw_sdl_error("Cannot configure framebuffer presentation");
+        }
+        // Keep reporting motion at window edges while the window has focus.
+        if (!SDL_SetWindowRelativeMouseMode(window_, true)) {
+            throw_sdl_error("Cannot enable relative mouse mode");
         }
     } catch (...) {
         release();
@@ -106,7 +113,8 @@ void SDLWindow::present(const std::vector<Eigen::Vector3f>& frame, float angle)
     }
 }
 
-bool SDLWindow::process_events(float& angle, Eigen::Vector3f& camera_position)
+bool SDLWindow::process_events(float& angle, Eigen::Vector3f& camera_position,
+                               float& camera_pitch, float& camera_yaw)
 {
     const SDL_WindowID window_id = SDL_GetWindowID(window_);
     SDL_Event event{};
@@ -115,6 +123,17 @@ bool SDLWindow::process_events(float& angle, Eigen::Vector3f& camera_position)
             (event.type == SDL_EVENT_WINDOW_CLOSE_REQUESTED &&
              event.window.windowID == window_id)) {
             return false;
+        }
+        if (event.type == SDL_EVENT_MOUSE_MOTION) {
+            if (event.motion.windowID == window_id) {
+                camera_yaw = std::remainder(
+                    camera_yaw + event.motion.xrel * mouse_sensitivity, 2.0f * pi);
+                // SDL's Y axis points down; positive pitch looks up.
+                camera_pitch = std::clamp(
+                    camera_pitch - event.motion.yrel * mouse_sensitivity,
+                    -pitch_limit, pitch_limit);
+            }
+            continue;
         }
         if (event.type != SDL_EVENT_KEY_DOWN || event.key.windowID != window_id) {
             continue;

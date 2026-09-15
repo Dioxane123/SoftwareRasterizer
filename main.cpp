@@ -31,11 +31,17 @@ Eigen::Matrix4f get_model_matrix(float angle_degrees)
     return model;
 }
 
-// View: the camera looks along -Z with +Y pointing up, without camera rotation.
-Eigen::Matrix4f get_view_matrix(const Eigen::Vector3f& eye_position)
-{
+// pitch: up-down. yaw: left-right
+Eigen::Matrix4f get_view_matrix(const Eigen::Vector3f& eye_position,
+                                float pitch, float yaw){ // Angles are in radians.
+    Eigen::Matrix3f rotation = Eigen::AngleAxisf(-yaw, Eigen::Vector3f::UnitY()).toRotationMatrix();
+    rotation = rotation * Eigen::AngleAxisf(pitch, Eigen::Vector3f::UnitX()).toRotationMatrix();
+    rotation.transposeInPlace();
+
     Eigen::Matrix4f view = Eigen::Matrix4f::Identity();
-    view.block<3, 1>(0, 3) = -eye_position;
+    view.block<3, 3>(0, 0) = rotation;
+    view.block<3, 1>(0, 3) = -rotation * eye_position;
+
     return view;
 }
 
@@ -77,17 +83,19 @@ int main(int, char**)
 
         SDLWindow window(window_width, window_height);
         float angle = 0.0f;
+        float camera_pitch = 0.0f;
+        float camera_yaw = 0.0f;
         Eigen::Vector3f camera_position(0.0f, 0.0f, 5.0f);
         Eigen::Vector3f light_position(0.0f, 1.0f, 5.0f);
         using Clock = std::chrono::steady_clock;
         auto last_fps_report = Clock::now();
         std::size_t frame_count = 0;
-        std::cout << "Q/E: rotate; WASD: move camera; Space/Ctrl: move up/down; Esc: quit.\n";
-        while (window.process_events(angle, camera_position)) {
+        std::cout << "Mouse: look; Q/E: rotate; WASD: move camera; Space/Ctrl: move up/down; Esc: quit.\n";
+        while (window.process_events(angle, camera_position, camera_pitch, camera_yaw)) {
             rasterizer.clear(rst::Buffers::Color | rst::Buffers::Depth);
             rasterizer.set_model(get_model_matrix(angle));
             // 设置相机位置
-            rasterizer.set_view(get_view_matrix(camera_position));
+            rasterizer.set_view(get_view_matrix(camera_position, camera_pitch, camera_yaw));
             rasterizer.draw(positions, colors, indices, light_position, rst::Primitive::Triangle);
             window.present(rasterizer.frame_buffer(), angle);
             ++frame_count;
