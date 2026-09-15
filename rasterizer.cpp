@@ -154,10 +154,15 @@ void rst::rasterizer::rasterize_triangle(const Triangle& t, Eigen::Vector3f ligh
         return;
     }
 
-    int x_min = std::floor(std::min({t.screen_pos[0].x(), t.screen_pos[1].x(), t.screen_pos[2].x(), 1.0f*(width-1)}));
-    int x_max = std::ceil(std::max({t.screen_pos[0].x(), t.screen_pos[1].x(), t.screen_pos[2].x(), 0.0f}));
-    int y_min = std::floor(std::min({t.screen_pos[0].y(), t.screen_pos[1].y(), t.screen_pos[2].y(), 1.0f*(height-1)}));
-    int y_max = std::ceil(std::max({t.screen_pos[0].y(), t.screen_pos[1].y(), t.screen_pos[2].y(), 0.0f}));
+    int x_min = std::floor(std::min({t.screen_pos[0].x(), t.screen_pos[1].x(), t.screen_pos[2].x()}));
+    int x_max = std::ceil(std::max({t.screen_pos[0].x(), t.screen_pos[1].x(), t.screen_pos[2].x()}));
+    int y_min = std::floor(std::min({t.screen_pos[0].y(), t.screen_pos[1].y(), t.screen_pos[2].y()}));
+    int y_max = std::ceil(std::max({t.screen_pos[0].y(), t.screen_pos[1].y(), t.screen_pos[2].y()}));
+
+    x_min = x_min > 0 ? x_min : 0;
+    x_max = x_max < width - 1 ? x_max : width - 1;
+    y_min = y_min > 0 ? y_min : 0;
+    y_max = y_max < height - 1 ? y_max : height - 1;
 
     for(int i = x_min; i <= x_max; ++i){
         for(int j = y_min; j <= y_max; ++j){
@@ -312,6 +317,10 @@ void rst::rasterizer::draw(pos_buf_id pos_buffer, col_buf_id col_buffer,
 
         input = polyAgainstPlane(input, Eigen::Vector4f(0.0f, 0.0f, 1.0f, 1.0f));// z-near
         input = polyAgainstPlane(input, Eigen::Vector4f(0.0f, 0.0f, -1.0f, 1.0f));// z-far
+        input = polyAgainstPlane(input, Eigen::Vector4f(1.0f, 0.0f, 0.0f, 1.0f));// left plane
+        input = polyAgainstPlane(input, Eigen::Vector4f(-1.0f, 0.0f, 0.0f, 1.0f));// right plane
+        input = polyAgainstPlane(input, Eigen::Vector4f(0.0f, -1.0f, 0.0f, 1.0f));// top plane
+        input = polyAgainstPlane(input, Eigen::Vector4f(0.0f, 1.0f, 0.0f, 1.0f));// bottom plane
         Eigen::Matrix4f proj_inv = projection.inverse();
 
         if(input.v.size() < 3)continue;
