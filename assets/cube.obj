@@ -1,0 +1,21 @@
+# Hand-authored cube, centered at the origin, with side length 2.
+# Eight shared positions, six outward-facing quads, no vertex colors.
+# The loader supplies colors and triangulates these into twelve triangles.
+o Cube
+
+v -1 -1 -1
+v  1 -1 -1
+v  1  1 -1
+v -1  1 -1
+v -1 -1  1
+v  1 -1  1
+v  1  1  1
+v -1  1  1
+
+# Back (-Z), front (+Z), left (-X), right (+X), bottom (-Y), top (+Y).
+f 1 4 3 2
+f 5 6 7 8
+f 1 5 8 4
+f 2 3 7 6
+f 1 2 6 5
+f 4 8 7 3

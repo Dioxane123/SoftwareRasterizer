@@ -283,16 +283,18 @@ void rst::rasterizer::draw(pos_buf_id pos_buffer, col_buf_id col_buffer,
     auto& col = col_buf[col_buffer.col_id];
     auto& ind = ind_buf[ind_buffer.ind_id];
 
+    Eigen::Matrix4f mv = view * model;
+    Eigen::Matrix3f normalMatrix = mv.block<3, 3>(0, 0).inverse().transpose();
+    Eigen::Matrix4f proj_inv = projection.inverse();
+
     std::vector<Triangle> triangle_list;
     for(const auto& i: ind){
         Triangle t;
         
         Eigen::Vector3f normal = (pos[i[1]] - pos[i[0]]).cross(pos[i[2]] - pos[i[0]]);
-        Eigen::Matrix4f mv = view * model;
         if(normal.squaredNorm() < 1e-12f){
             normal = Eigen::Vector3f(0, 0, 0);
         }else{
-            Eigen::Matrix3f normalMatrix = mv.block<3, 3>(0, 0).inverse().transpose();
             Eigen::Vector3f normalView = (normalMatrix * normal).normalized();
             normal = normalView;
         }
@@ -321,7 +323,6 @@ void rst::rasterizer::draw(pos_buf_id pos_buffer, col_buf_id col_buffer,
         input = polyAgainstPlane(input, Eigen::Vector4f(-1.0f, 0.0f, 0.0f, 1.0f));// right plane
         input = polyAgainstPlane(input, Eigen::Vector4f(0.0f, -1.0f, 0.0f, 1.0f));// top plane
         input = polyAgainstPlane(input, Eigen::Vector4f(0.0f, 1.0f, 0.0f, 1.0f));// bottom plane
-        Eigen::Matrix4f proj_inv = projection.inverse();
 
         if(input.v.size() < 3)continue;
         for(int i = 0; i < input.v.size()-2; ++i){

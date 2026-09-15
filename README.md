@@ -2,7 +2,8 @@
 
 一个学习games101之后的学习项目。
 
-当前入口会打开一个 800 × 600 的窗口，在黑色背景上绘制两个重叠的彩色三角形。
+当前入口会打开一个 800 × 600 的窗口，在黑色背景上绘制从 `assets/cube.obj` 加载的灰色立方体。
+初始相机朝向原点，可以同时看到立方体的三个面。
 窗口和键盘事件使用 SDL3，面向 Linux、Windows 和 macOS。
 变换、光栅化、深度测试和颜色插值由项目自己的 CPU 光栅器完成；
 SDL3 负责选择系统显示后端，并将 CPU 帧缓冲作为纹理显示到窗口。
@@ -75,6 +76,62 @@ SDL3 的集成方式见 [官方 CMake 文档](https://wiki.libsdl.org/SDL3/READM
 Linux/macOS 的 Makefiles 或 Ninja 构建可使用 `-DCMAKE_BUILD_TYPE=Debug` 切换到调试配置；
 Visual Studio 等多配置生成器则使用 `cmake --build build-windows --config Debug`。
 
+## OBJ 模型加载
+
+默认模型 `assets/cube.obj` 是手工创建的边长为 2、中心位于原点的立方体。
+文件只包含 8 个顶点和 6 个四边形面；加载器自动生成 12 个三角形，并为 8 个顶点补齐默认灰色。
+默认模型路径由 CMake 指向源码中的文件，因此从其他工作目录启动程序也能加载它。
+也可以通过第一个命令行参数指定模型：
+
+```sh
+./build-release/software_rasterizer /path/to/model.obj
+```
+
+模型位置、大小和坐标轴按文件原样保留。显示其他模型时，可按需要调整模型矩阵和相机。
+如果把可执行文件移到没有源码的环境中，需要同时携带 OBJ 文件，并通过命令行指定其路径。
+
+`obj_loader.hpp` / `obj_loader.cpp` 只依赖 Eigen 和 C++ 标准库，与窗口和光栅器分离。
+`mesh::load_obj()` 从文件读取，`mesh::parse_obj()` 从输入流读取，均返回 `mesh::MeshData`：
+
+| 成员 | 类型 | 约定 |
+| --- | --- | --- |
+| `positions` | `std::vector<Eigen::Vector3f>` | 顶点位置 |
+| `indices` | `std::vector<Eigen::Vector3i>` | 每项为一个三角形，索引从 0 开始 |
+| `colors` | `std::vector<Eigen::Vector3f>` | 与位置数组等长，RGB 范围为 0～255 |
+
+可以直接接入现有接口：
+
+```cpp
+const auto model = mesh::load_obj("assets/cube.obj", Eigen::Vector3f(180, 180, 180));
+const auto positions = rasterizer.load_positions(model.positions);
+const auto indices = rasterizer.load_indices(model.indices);
+const auto colors = rasterizer.load_colors(model.colors);
+```
+
+当前支持范围：
+
+- `v x y z`，以及带可选权重的 `v x y z w`。多边形位置使用 `xyz`，忽略自由曲面权重 `w`。
+- 顶点颜色扩展 `v x y z r g b` 和 `v x y z w r g b`，文件中的 RGB 使用 0～1，加载后转换为 0～255。
+  缺失颜色默认使用 `(180, 180, 180)`，可以通过函数的第二个参数指定其他默认颜色。
+- 面顶点支持 `v`、`v/vt`、`v//vn`、`v/vt/vn`，仅取位置索引。
+  正索引从 1 开始，负索引相对于该面之前已经定义的顶点；索引必须引用已经定义的顶点。
+- 使用耳切法拆分简单平面多边形，支持凸多边形和凹多边形，并保留原有绕序。
+  自相交、退化或明显不共面的多边形会报错。
+- 支持注释、空行、CRLF、UTF-8 BOM 和反斜杠续行。
+- UV、文件法线、材质和分组等记录暂不进入输出数组；当前光照继续使用光栅器计算的面法线。
+  无法读取文件或遇到非法几何数据时抛出异常，解析错误会包含对应行号。
+
+### 验证加载器
+
+默认构建包含测试程序，验证默认颜色、颜色转换、索引格式、凹多边形三角化、非法输入，
+以及 cube 的面朝向、封闭性和通过现有光栅器渲染的结果。测试无需打开窗口：
+
+```sh
+ctest --test-dir build-release --output-on-failure
+```
+
+Visual Studio 等多配置构建需添加 `-C Release`。可通过 `-DBUILD_TESTING=OFF` 关闭测试构建。
+
 ## 操作
 
 窗口获得键盘焦点后：
@@ -99,6 +156,9 @@ FPS 按本统计周期完成绘制并提交给窗口的帧数除以实际经过�
 ## 代码组织
 
 - `main.cpp`：场景数据、相机位置、矩阵生成和渲染循环。
+- `obj_loader.hpp` / `obj_loader.cpp`：OBJ 解析、默认颜色和多边形三角化。
+- `assets/cube.obj`：用于默认场景的立方体模型。
+- `tests/obj_loader_tests.cpp`：模型加载和无窗口渲染测试。
 - `sdl_window.hpp` / `sdl_window.cpp`：SDL3 生命周期、窗口、事件和帧缓冲显示。
 - `rasterizer.hpp` / `rasterizer.cpp`：CPU 光栅化、深度缓冲和颜色插值。
 - `triangle.hpp` / `triangle.cpp`：三角形顶点和属性。
@@ -118,5 +178,5 @@ FPS 按本统计周期完成绘制并提交给窗口的帧数除以实际经过�
 每帧清除颜色与深度缓冲，再以 `Primitive::Triangle` 绘制填充三角形。
 每帧使用键盘更新后的位置和鼠标更新后的角度重新生成 view 矩阵。
 
-当前光栅器尚未实现完整视锥裁剪，三角形包围盒也未限制在屏幕范围内。
-相机移动使三角形离开屏幕或穿过相机平面时，仍可能触发缓冲区越界；这是当前光栅器的已知限制。
+当前光栅器在透视除法前进行六面视锥裁剪，并将三角形包围盒限制在屏幕范围内。
+填充渲染会剔除屏幕空间顺时针的面，模型应使用从外部观察为逆时针的顶点绕序。

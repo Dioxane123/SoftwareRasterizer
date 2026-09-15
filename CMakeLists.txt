@@ -27,15 +27,25 @@ if(NOT SDL3_FOUND)
     FetchContent_MakeAvailable(SDL3)
 endif()
 
+add_library(obj_loader obj_loader.cpp)
+target_compile_features(obj_loader PUBLIC cxx_std_17)
+set_target_properties(obj_loader PROPERTIES CXX_EXTENSIONS OFF)
+target_include_directories(obj_loader PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}")
+target_link_libraries(obj_loader PUBLIC Eigen3::Eigen)
+
 add_executable(software_rasterizer main.cpp rasterizer.cpp triangle.cpp sdl_window.cpp)
 target_compile_features(software_rasterizer PRIVATE cxx_std_17)
 set_target_properties(software_rasterizer PROPERTIES CXX_EXTENSIONS OFF)
-target_link_libraries(software_rasterizer PRIVATE Eigen3::Eigen SDL3::SDL3)
+target_link_libraries(software_rasterizer PRIVATE obj_loader SDL3::SDL3)
+target_compile_definitions(software_rasterizer PRIVATE
+    SOFTWARE_RASTERIZER_DEFAULT_OBJ="${CMAKE_CURRENT_SOURCE_DIR}/assets/cube.obj")
 
 if(MSVC)
     target_compile_options(software_rasterizer PRIVATE /W4 /utf-8)
+    target_compile_options(obj_loader PRIVATE /W4 /utf-8)
 elseif(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
     target_compile_options(software_rasterizer PRIVATE -Wall -Wextra -Wpedantic)
+    target_compile_options(obj_loader PRIVATE -Wall -Wextra -Wpedantic)
 endif()
 
 # Installed SDL packages may use a DLL; keep it beside the executable on Windows.
@@ -46,4 +56,12 @@ if(WIN32 AND sdl3_library_type STREQUAL "SHARED_LIBRARY")
             "$<TARGET_FILE:SDL3::SDL3>" "$<TARGET_FILE_DIR:software_rasterizer>"
         VERBATIM
     )
+endif()
+
+include(CTest)
+if(BUILD_TESTING)
+    add_executable(obj_loader_tests tests/obj_loader_tests.cpp rasterizer.cpp triangle.cpp)
+    target_link_libraries(obj_loader_tests PRIVATE obj_loader)
+    set_target_properties(obj_loader_tests PROPERTIES CXX_EXTENSIONS OFF)
+    add_test(NAME obj_loader COMMAND obj_loader_tests "${CMAKE_CURRENT_SOURCE_DIR}/assets/cube.obj")
 endif()

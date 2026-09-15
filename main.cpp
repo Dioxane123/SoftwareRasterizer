@@ -1,3 +1,4 @@
+#include "obj_loader.hpp"
 #include "rasterizer.hpp"
 #include "sdl_window.hpp"
 
@@ -65,28 +66,31 @@ Eigen::Matrix4f get_projection_matrix(float vertical_fov_degrees,
 
 } // namespace
 
-int main(int, char**)
+int main(int argc, char** argv)
 {
     try {
         rst::rasterizer rasterizer(window_width, window_height);
 
-        const auto positions = rasterizer.load_positions({
-            {-1.0f, -1.0f, -0.5f}, {1.0f, -1.0f, -0.5f}, {0.0f, 1.0f, 2.0f},
-            {0.5f, -1.0f, 1.0f}, {-0.5f, -1.0f, 1.0f}, {0.0f, 1.0f, 1.0f}});
-        const auto indices = rasterizer.load_indices({{0, 1, 2}}); // anti-clockwise vertex
-        const auto colors = rasterizer.load_colors({
-            {153.0f, 153.0f, 255.0f}, {153.0f, 153.0f, 255.0f}, {153.0f, 153.0f, 255.0f},
-            {255.0f, 255.0f, 0.0f}, {0.0f, 255.0f, 255.0f}, {255.0f, 0.0f, 255.0f}});
+        const std::filesystem::path model_path =
+            argc > 1 ? argv[1] : SOFTWARE_RASTERIZER_DEFAULT_OBJ;
+        const auto model = mesh::load_obj(model_path);
+        const auto positions = rasterizer.load_positions(model.positions);
+        const auto indices = rasterizer.load_indices(model.indices);
+        const auto colors = rasterizer.load_colors(model.colors);
+        std::cout << "Loaded " << model_path << ": " << model.positions.size()
+                  << " vertices, " << model.indices.size() << " triangles.\n";
 
         rasterizer.set_projection(get_projection_matrix(
             45.0f, 1.0f * window_width / window_height, 0.1f, 50.0f));
 
         SDLWindow window(window_width, window_height);
         float angle = 0.0f;
-        float camera_pitch = 0.0f;
-        float camera_yaw = 0.0f;
-        Eigen::Vector3f camera_position(0.0f, 0.0f, 5.0f);
-        Eigen::Vector3f light_position(0.0f, 1.0f, 5.0f);
+        Eigen::Vector3f camera_position(3.0f, 2.0f, 5.0f);
+        // Look toward the origin so three faces of the default cube are visible.
+        float camera_pitch = -std::atan2(camera_position.y(),
+                                        std::hypot(camera_position.x(), camera_position.z()));
+        float camera_yaw = std::atan2(-camera_position.x(), camera_position.z());
+        Eigen::Vector3f light_position(3.0f, 4.0f, 5.0f);
         using Clock = std::chrono::steady_clock;
         auto last_fps_report = Clock::now();
         std::size_t frame_count = 0;
