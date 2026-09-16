@@ -138,6 +138,15 @@ bool SDLWindow::process_events(float& angle, Eigen::Vector3f& camera_position,
         if (event.type != SDL_EVENT_KEY_DOWN || event.key.windowID != window_id) {
             continue;
         }
+        
+        const Eigen::Matrix3f camera_to_world =
+            Eigen::AngleAxisf(-camera_yaw, Eigen::Vector3f::UnitY()).toRotationMatrix()
+            * Eigen::AngleAxisf(camera_pitch, Eigen::Vector3f::UnitX()).toRotationMatrix();
+        
+        const Eigen::Vector3f right   = camera_to_world.col(0); //+X axis
+        const Eigen::Vector3f up      = camera_to_world.col(1); //+Y axis
+        const Eigen::Vector3f forward = -camera_to_world.col(2); //-Z axis
+
         switch (event.key.key) {
         case SDLK_ESCAPE:
             return false;
@@ -148,23 +157,23 @@ bool SDLWindow::process_events(float& angle, Eigen::Vector3f& camera_position,
             angle = std::remainder(angle - rotation_step, 360.0f);
             break;
         case SDLK_W:
-            camera_position.z() -= move_step;
+            camera_position += forward * move_step;
             break;
         case SDLK_S:
-            camera_position.z() += move_step;
+            camera_position -= forward * move_step;
             break;
         case SDLK_A:
-            camera_position.x() -= move_step;
+            camera_position -= right * move_step;
             break;
         case SDLK_D:
-            camera_position.x() += move_step;
+            camera_position += right * move_step;
             break;
         case SDLK_LCTRL:
         case SDLK_RCTRL:
-            camera_position.y() -= move_step;
+            camera_position -= up * move_step;
             break;
         case SDLK_SPACE:
-            camera_position.y() += move_step;
+            camera_position += up * move_step;
             break;
         default:
             break;

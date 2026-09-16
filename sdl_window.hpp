@@ -2,6 +2,7 @@
 #define SDL_WINDOW_HPP
 
 #include <Eigen/Core>
+#include <Eigen/Geometry>
 
 #include <vector>
 
